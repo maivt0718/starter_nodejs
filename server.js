@@ -2,11 +2,13 @@ import express from 'express'
 import pool from './db.js'
 import { status } from './const.js'
 import rootRoutes from './src/routes/root.router.js'
+import cors from 'cors'
 
 export const app = express()
 
 // Create moddleware to read json data
 app.use(express.json())
+app.use(cors())
 app.use(rootRoutes)
 
 app.get("/", (req, res) => {
