@@ -38,7 +38,14 @@ export const createRefTokenAsyncKey = (data) => {
   });
 };
 
-const verifyToken = (token) => {
+export const createRefToken = (data) => {
+  return jwt.sign({payload: data}, process.env.REFRESH_SECRET, {
+      algorithm: "HS256",
+      expiresIn: "7d"
+  })
+};
+
+export const verifyToken = (token) => {
   try {
     jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
     return true;
@@ -67,3 +74,14 @@ export const middlewareToken = (req, res, next) => {
     return res.status(status.NOT_AUTHORISE).json({ message: `Unauthorised` });
   }
 };
+
+export const middlewareTokenAsyncKey = (req, res, next) => {
+  let {token} = req.headers;
+  let checkToken = verifyTokenAsyncKey(token);
+  if (checkToken){
+      // nếu token hợp lệ => pass => qua router
+      next();
+  } else {
+      return res.status(401).json({message: "Unauthorized"});
+  }
+}
