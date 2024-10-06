@@ -8,5 +8,6 @@ export default {
     host: process.env.DB_HOST,
     dialect: process.env.DB_DIALECT,
     database: process.env.DB_DATABASE,
+    database_app_food: process.env.DB_APP_FOOD,
     port: process.env.DB_PORT,
 }
