@@ -4,11 +4,9 @@ import sequelize from "../models/connect.js";
 import { Op } from "sequelize"; // AND, IN, LIKe, OR
 import bcrypt from "bcrypt";
 import transporter from "../../config/transporter.js";
-import {
-  createRefTokenAsyncKey,
-  createToken,
-  createTokenAsyncKey,
-} from "../../config/jwt.js";
+
+import { createRefToken, createRefTokenAsyncKey, createToken, createTokenAsyncKey, verifyTokenAsyncKey } from "../config/jwt.js";
+
 
 const models = initModels(sequelize);
 
@@ -72,6 +70,7 @@ const authLogin = async (req, res, next) => {
       userID: user.user_id,
     };
     let accessToken = createToken(payload);
+    
     return res.status(status.OK).json({
       message: `Log in succeed`,
       data: accessToken,
@@ -162,4 +161,35 @@ const authAsyncKey = async (req, res, next) => {
   }
 };
 
-export { authRegister, authLogin, authLoginFB, authAsyncKey };
+
+const extendToken = async (req, res) => {
+  // lấy refresh token từ cookie request
+  const refreshToken = req.cookies.refreshToken;
+
+  if (!refreshToken) {
+      return res.status(401)
+  }
+
+  const checkRefToken = await model.users.findOne({
+      where: {
+          refresh_token: refreshToken
+      }
+  });
+
+  if (!checkRefToken) {
+      return res.status(401);
+  }
+
+  // const newToken = createToken({userId: checkRefToken.user_id})
+  // tạo access token mới
+  const newToken = createTokenAsyncKey({userId: checkRefToken.user_id})
+  return res.status(200).json({message: "Success", data: newToken});
+}
+
+const verifyAccessTokenAsyncKey = (req, res) => {
+  let {token} = req.headers;
+  let checkToken = verifyTokenAsyncKey(token)
+  return res.status(200).json({checkToken});
+}
+
+export { authRegister, authLogin, authLoginFB, authAsyncKey, extendToken, verifyAccessTokenAsyncKey };
