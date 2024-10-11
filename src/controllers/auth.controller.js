@@ -5,6 +5,7 @@ import { Op } from "sequelize"; // AND, IN, LIKe, OR
 import bcrypt from "bcrypt";
 import transporter from "../../config/transporter.js";
 import {
+  createRefToken,
   createRefTokenAsyncKey,
   createToken,
   createTokenAsyncKey,
@@ -71,7 +72,28 @@ const authLogin = async (req, res, next) => {
     let payload = {
       userID: user.user_id,
     };
+
     let accessToken = createToken(payload);
+    let refreshToken = createRefToken(payload);
+    console.log(refreshToken)
+
+    await models.users.update(
+      {
+        refresh_token: refreshToken,
+      },
+      {
+        where: {
+          user_id: user.user_id,
+        },
+      }
+    );
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true, // Cookie không thể truy cập từ javascript
+      secure: false, // để chạy dưới localhost
+      sameSite: "Lax", // để đảm bảo cookie được gửi trong các domain khác nhau
+      maxAge: 7 * 24 * 60 * 60 * 1000, //thời gian tồn tại cookie trong browser
+    });
     return res.status(status.OK).json({
       message: `Log in succeed`,
       data: accessToken,
@@ -106,6 +128,28 @@ const authLoginFB = async (req, res, nex) => {
     console.log(error);
     return res.status(status.INTERNAL_SERVER).json({ message: `${error}` });
   }
+};
+
+const extendToken = async (req, res, next) => {
+  let refreshToken = req.cookies.refreshToken;
+
+  if (!refreshToken) {
+    return res.status(status.NOT_AUTHORISE).json({ message: `Unauthorised` });
+  }
+
+  let user = await models.users.findOne({
+    where: {
+      refresh_token: refreshToken,
+    },
+  });
+
+  if (!user) {
+    return res.status(status.NOT_AUTHORISE).json({ message: `Unauthorised` });
+  }
+
+  const newToken = createToken({ userId: user.user_id });
+  console.log(newToken)
+  return res.status(status.OK).json({ message: "Success", data: newToken });
 };
 
 const authAsyncKey = async (req, res, next) => {
@@ -162,4 +206,4 @@ const authAsyncKey = async (req, res, next) => {
   }
 };
 
-export { authRegister, authLogin, authLoginFB, authAsyncKey };
+export { authRegister, authLogin, authLoginFB, authAsyncKey, extendToken};

@@ -12,17 +12,6 @@ const sequelize = new Sequelize(
         port: configDB.port,
         dialect: configDB.dialect
     }
-)
-const sequelizeAppFood = new Sequelize(
-    configDB.database_app_food,
-    configDB.user,
-    configDB.pass,
-    {
-        host: configDB.host,
-        port: configDB.port,
-        dialect: configDB.dialect
-    }
-)
+);
 
-export default {sequelizeAppFood, sequelize}
-
+export default sequelize

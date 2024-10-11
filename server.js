@@ -3,12 +3,20 @@ import pool from './db.js'
 import { status } from './const.js'
 import rootRoutes from './src/routes/root.router.js'
 import cors from 'cors'
+import cookieParser from 'cookie-parser'
 
 export const app = express()
 
 // Create moddleware to read json data
 app.use(express.json())
-app.use(cors())
+
+// Create middleware allowing FE to call API to BE
+app.use(cors({
+    origin: "http://localhost:4000",
+    credentials: true
+}))
+
+app.use(cookieParser())
 app.use(rootRoutes)
 
 app.get("/", (req, res) => {
