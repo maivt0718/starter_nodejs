@@ -10,7 +10,7 @@ const sequelize = new Sequelize(
     {
         host: configDB.host,
         port: configDB.port,
-        dialect: configDB.dialect
+        dialect: configDB.dialect,
     }
 );
 

@@ -17,6 +17,7 @@ let refreshTokenPublicKey = fs.readFileSync(
   `${process.env.BASE_KEY_PATH}/refresh_token.public.key`
 );
 
+// Symetric key
 export const createToken = (data) => {
   return jwt.sign({ payload: data }, process.env.ACCESS_TOKEN_KEY, {
     algorithm: "HS256",
@@ -31,10 +32,21 @@ export const createRefToken = (data) => {
   })
 }
 
+const verifyToken = (token) => {
+  try {
+    jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+
+// Asynmetric key
 export const createTokenAsyncKey = (data) => {
   return jwt.sign({ payload: data }, accessTokenPrivateKey, {
     algorithm: "RS256",
-    expiresIn: "1d",
+    expiresIn: "10s",
   });
 };
 
@@ -45,21 +57,13 @@ export const createRefTokenAsyncKey = (data) => {
   });
 };
 
-const verifyToken = (token) => {
-  try {
-    jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
-    return true;
-  } catch (error) {
-    return false;
-  }
-};
 
 export const verifyTokenAsyncKey = (token) => {
   try {
     jwt.verify(token, accessTokenPublicKey);
     return true;
   } catch (error) {
-    // không verify được token
+    // token is wrong 
     return false;
   }
 };
@@ -68,6 +72,16 @@ export const verifyTokenAsyncKey = (token) => {
 export const middlewareToken = (req, res, next) => {
   let { token } = req.headers;
   let checktoken = verifyToken(token);
+  if (checktoken) {
+    next();
+  } else {
+    return res.status(status.NOT_AUTHORISE).json({ message: `Unauthorised` });
+  }
+};
+
+export const middlewareAsyncToken = (req, res, next) => {
+  let { token } = req.headers;
+  let checktoken = verifyTokenAsyncKey(token);
   if (checktoken) {
     next();
   } else {

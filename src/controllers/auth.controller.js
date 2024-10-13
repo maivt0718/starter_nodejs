@@ -1,9 +1,10 @@
 import { status } from "../../const.js";
 import initModels from "../models/init-models.js";
 import sequelize from "../models/connect.js";
-import { Op } from "sequelize"; // AND, IN, LIKe, OR
+import { Op, where } from "sequelize"; // AND, IN, LIKe, OR
 import bcrypt from "bcrypt";
 import transporter from "../../config/transporter.js";
+import crypto from "crypto";
 import {
   createRefToken,
   createRefTokenAsyncKey,
@@ -75,7 +76,7 @@ const authLogin = async (req, res, next) => {
 
     let accessToken = createToken(payload);
     let refreshToken = createRefToken(payload);
-    console.log(refreshToken)
+    console.log(refreshToken);
 
     await models.users.update(
       {
@@ -147,8 +148,9 @@ const extendToken = async (req, res, next) => {
     return res.status(status.NOT_AUTHORISE).json({ message: `Unauthorised` });
   }
 
-  const newToken = createToken({ userId: user.user_id });
-  console.log(newToken)
+  // const newToken = createToken({ userId: user.user_id });
+
+  const newToken = createTokenAsyncKey({ userId: user.user_id });
   return res.status(status.OK).json({ message: "Success", data: newToken });
 };
 
@@ -172,13 +174,13 @@ const authAsyncKey = async (req, res, next) => {
     let payload = {
       userId: user.user_id,
     };
-    // tạo token
-    // function sign của jwt
-    // param 1: tạo payload và lưu vào token
-    // param 2: key để tạo token
-    // param 3: setting lifetime của token và thuật toán để tạo token
+    // create async token
+    // function sign jwt
+    // param 1: create payload and attach into key
+    // param 2: key to create token
+    // param 3: setting lifetime  and its algorithm to create token
     let accessToken = createTokenAsyncKey(payload);
-    // create refresh token và lưu vào database
+    // create refresh token và save to db
     let refreshToken = createRefTokenAsyncKey(payload);
     await models.users.update(
       {
@@ -189,12 +191,12 @@ const authAsyncKey = async (req, res, next) => {
       }
     );
 
-    // lưu refresh token vào cookie
+    // save refresh token to cookie
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true, // Cookie không thể truy cập từ javascript
-      secure: false, // để chạy dưới localhost
-      sameSite: "Lax", // để đảm bảo cookie được gửi trong các domain khác nhau
-      maxAge: 7 * 24 * 60 * 60 * 1000, //thời gian tồn tại cookie trong browser
+      httpOnly: true, // Cookie cant be access by javascript
+      secure: false, // to run with localhost
+      sameSite: "Lax", // ensure to send in different domains
+      maxAge: 7 * 24 * 60 * 60 * 1000, //lifetime of cookie in browser
     });
 
     return res.status(200).json({
@@ -206,4 +208,112 @@ const authAsyncKey = async (req, res, next) => {
   }
 };
 
-export { authRegister, authLogin, authLoginFB, authAsyncKey, extendToken};
+const forgotPassword = async (req, res, next) => {
+  try {
+    let { email } = req.body;
+    console.log(email);
+    let checkEmail = await models.users.findOne({
+      where: {
+        email,
+      },
+    });
+
+    if (!checkEmail) {
+      return res
+        .status(status.CLIENT_ERR)
+        .json({ message: `Wrong email: ${error}` });
+    }
+
+    let randomCode = crypto.randomBytes(5).toString("hex");
+    await models.code.create({
+      code: randomCode,
+      expired: new Date(new Date().getTime() + 1 * 60 * 3600 * 1000),
+    });
+
+    const mailOption = {
+      from: "maivt0718@gmail.com",
+      to: email,
+      subject: "Forget Password",
+      text: `Your code to reset password`,
+      html: `<h1>${randomCode}</h1>`,
+    };
+
+    transporter.sendMail(mailOption, (err, info) => {
+      if (err) {
+        return res
+          .status(status.INTERNAL_SERVER)
+          .json({ message: `Error sending email: ${err}` });
+      }
+      return res.status(status.OK).json({ message: `Please check your email` });
+    });
+  } catch (error) {
+    return res
+      .status(status.INTERNAL_SERVER)
+      .json({ message: `Error forgot password: ${error}` });
+  }
+};
+
+const renewPassword = async (req, res, next) => {
+  try {
+    let { email, code, newPassword } = req.body;
+    console.log(newPassword)
+    let checkEmail = await models.users.findOne({
+      where: {
+        email,
+      },
+    });
+
+    if (!checkEmail) {
+      return res
+        .status(status.CLIENT_ERR)
+        .json({ message: `Wrong email: ${error}` });
+    }
+
+    let checkCode = await models.code.findOne({
+      where: {
+        code,
+      },
+    });
+
+    if (!checkCode) {
+      return res.status(status.CLIENT_ERR).json({ message: `Wrong code` });
+    }
+
+    let checkExpire =
+      new Date().getTime() - checkCode.expired < 1 * 60 * 3600 * 1000;
+
+    if (checkExpire) {
+      await models.code.destroy({
+        where: {
+          code,
+        },
+      });
+
+      await models.users.update(
+        {
+          pass_word: await bcrypt.hash(newPassword, 10),
+        },
+        {
+          where: {
+            email: checkEmail.email,
+          },
+        }
+      );
+      return res.status(status.OK).json({ message: `Password changed` });
+    }
+  } catch (err) {
+    return res
+      .status(status.INTERNAL_SERVER)
+      .json({ message: `Error renew password: ${err}` });
+  }
+};
+
+export {
+  authRegister,
+  authLogin,
+  authLoginFB,
+  authAsyncKey,
+  extendToken,
+  forgotPassword,
+  renewPassword,
+};
