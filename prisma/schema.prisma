@@ -43,6 +43,7 @@ model users {
   face_app_id   String?         @db.VarChar(255)
   role_id       Int?
   refresh_token String?         @db.Text
+  secret        String?         @db.Text
   role          role?           @relation(fields: [role_id], references: [role_id], onDelete: NoAction, onUpdate: NoAction, map: "users_ibfk_1")
   video         video[]
   video_comment video_comment[]

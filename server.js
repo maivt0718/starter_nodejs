@@ -9,6 +9,7 @@ export const app = express()
 
 // Create moddleware to read json data
 app.use(express.json())
+app.use(express.static('.'))
 
 // Create middleware allowing FE to call API to BE
 app.use(cors({

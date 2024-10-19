@@ -5,7 +5,7 @@ import { Op } from "sequelize"; // AND, IN, LIKe, Or
 import { PrismaClient } from "@prisma/client";
 
 const models = initModels(sequelize);
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 const createUser = async (req, res) => {
   // let params = req.params
@@ -23,9 +23,9 @@ const createUser = async (req, res) => {
       data: {
         full_name,
         email,
-        pass_word
-      }
-    })
+        pass_word,
+      },
+    });
     res.status(status.OK).json(newUser);
   } catch (error) {
     res.status(status.INTERNAL_SERVER).json({ message: `${error}` });
@@ -77,18 +77,18 @@ const deleteUser = async (req, res) => {
 
     let user = await prisma.users.findFirst({
       where: {
-        user_id: Number(user_id)
-      }
-    })
+        user_id: Number(user_id),
+      },
+    });
 
     if (!user) {
       return res.status(status.NOT_FOUND).json({ message: "User not found" });
     } else {
       await prisma.users.delete({
-        where:{
-          user_id: Number(user_id)
-        }
-      })
+        where: {
+          user_id: Number(user_id),
+        },
+      });
       return res.status(status.OK).json({ message: "User deleted" });
     }
   } catch (error) {
@@ -104,10 +104,10 @@ const updateUser = async (req, res) => {
     //   where: { user_id },
     // });
     let user = await prisma.users.findFirst({
-      where:{
-        user_id: Number(user_id)
-      }
-    })
+      where: {
+        user_id: Number(user_id),
+      },
+    });
 
     if (!user) {
       return res.status(status.NOT_FOUND).json({ message: "User not found" });
@@ -122,19 +122,19 @@ const updateUser = async (req, res) => {
 
     const { full_name, pass_word } = req.body;
 
-    user.full_name = full_name || user.full_name
-    user.pass_word = pass_word || user.pass_word
+    user.full_name = full_name || user.full_name;
+    user.pass_word = pass_word || user.pass_word;
 
     await prisma.users.update({
       data: {
         full_name,
-        pass_word
+        pass_word,
       },
-      where:{
-        user_id: Number(user_id)
-      }
-    })
-    
+      where: {
+        user_id: Number(user_id),
+      },
+    });
+
     // await user.save()
     return res.status(status.OK).json(user);
   } catch (error) {
@@ -142,4 +142,32 @@ const updateUser = async (req, res) => {
   }
 };
 
-export { createUser, getUser, deleteUser, updateUser };
+const uploadAvarta = async (req, res, next) => {
+  try {
+    let file = req.file;
+    let user_id = req.body.user_id
+    let user = await prisma.users.findFirst({
+      where:{
+        user_id: Number(user_id)
+      }
+    })
+    if(!user){
+      return res.status(status.CLIENT_ERR).json({ message: `User not found` });
+    }
+    // update column avarta in table
+    await prisma.users.update({
+      
+      data: {
+        avatar: `/public/imgs/${file.filename}`
+      },
+      where: {
+        user_id: Number(user_id)
+      },
+    })
+    return res.status(status.OK).json(`Upload avarta successfully`);
+  } catch (error) {
+    return res.status(status.INTERNAL_SERVER).json({ message: `${error}` });
+  }
+};
+
+export { createUser, getUser, deleteUser, updateUser, uploadAvarta };

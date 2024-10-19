@@ -5,20 +5,23 @@ import { Op, where } from "sequelize"; // AND, IN, LIKe, OR
 import bcrypt from "bcrypt";
 import transporter from "../../config/transporter.js";
 import crypto from "crypto";
+import speakeasy from "speakeasy";
 import {
   createRefToken,
   createRefTokenAsyncKey,
   createToken,
   createTokenAsyncKey,
 } from "../../config/jwt.js";
+import { PrismaClient } from "@prisma/client";
 
 const models = initModels(sequelize);
+const prisma = new PrismaClient();
 
 const authRegister = async (req, res, next) => {
   try {
     let { fullname, email, pass } = req.body;
 
-    let user = await models.users.findOne({
+    let user = await prisma.users.findFirst({
       where: { email },
     });
 
@@ -26,25 +29,32 @@ const authRegister = async (req, res, next) => {
       return res.status(status.FOUND).json(`User found`);
     }
 
-    const newUser = await models.users.create({
-      fullname: fullname,
-      email: email,
-      pass_word: bcrypt.hashSync(pass, 10),
-    });
-    const mailOption = {
-      from: "maivt0718@gmail.com",
-      to: email,
-      subject: "welcome to our services",
-      text: `Hello ${fullname}`,
-      html: `<h1>Ahhhihihihihihi</h1>`,
-    };
+    // create secret for 2MFA
+    const secret = speakeasy.generateSecret({ length: 15 });
 
-    transporter.sendMail(mailOption, (err, info) => {
-      if (err) {
-        return res.status(status.INTERNAL_SERVER).json({ message: `${err}` });
-      }
-      return res.status(status.OK).json({ message: `Success`, data: newUser });
+    const newUser = await prisma.users.create({
+      data: {
+        full_name: fullname,
+        email: email,
+        pass_word: bcrypt.hashSync(pass, 10),
+        secret: secret.base32,
+      },
     });
+    // const mailOption = {
+    //   from: "maivt0718@gmail.com",
+    //   to: email,
+    //   subject: "welcome to our services",
+    //   text: `Hello ${fullname}`,
+    //   html: `<h1>Ahhhihihihihihi</h1>`,
+    // };
+
+    // transporter.sendMail(mailOption, (err, info) => {
+    //   if (err) {
+    //     return res.status(status.INTERNAL_SERVER).json({ message: `${err}` });
+    //   }
+    //   return res.status(status.OK).json({ message: `Success`, data: newUser });
+    // });
+    return res.status(status.OK).json({ message: `Success`, data: newUser });
   } catch (error) {
     return res.status(status.INTERNAL_SERVER).json({ message: `${error}` });
   }
@@ -52,8 +62,8 @@ const authRegister = async (req, res, next) => {
 
 const authLogin = async (req, res, next) => {
   try {
-    let { email, pass_word } = req.body;
-    let user = await models.users.findOne({
+    let { email, pass_word, code } = req.body;
+    let user = await prisma.users.findFirst({
       where: {
         email,
       },
@@ -70,24 +80,34 @@ const authLogin = async (req, res, next) => {
         .json({ message: `Password is wrong` });
     }
 
+    const verified = speakeasy.totp.verify({
+      secret : user.secret,
+      encoding: 'base32',
+      token: code,
+
+    })
+
+    if(!verified){
+      return res
+      .status(status.CLIENT_ERR)
+      .json({ message: `Invalid 2FA` });
+    }
+
     let payload = {
       userID: user.user_id,
     };
 
     let accessToken = createToken(payload);
     let refreshToken = createRefToken(payload);
-    console.log(refreshToken);
 
-    await models.users.update(
-      {
+    await prisma.users.update({
+      data: {
         refresh_token: refreshToken,
       },
-      {
-        where: {
-          user_id: user.user_id,
-        },
-      }
-    );
+      where: {
+        user_id: user.user_id,
+      },
+    });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true, // Cookie không thể truy cập từ javascript
@@ -256,7 +276,7 @@ const forgotPassword = async (req, res, next) => {
 const renewPassword = async (req, res, next) => {
   try {
     let { email, code, newPassword } = req.body;
-    console.log(newPassword)
+    console.log(newPassword);
     let checkEmail = await models.users.findOne({
       where: {
         email,
