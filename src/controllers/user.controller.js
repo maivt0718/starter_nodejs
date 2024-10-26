@@ -32,6 +32,15 @@ const createUser = async (req, res) => {
   }
 };
 
+const getAllUser = async (req, res) => {
+  try {
+    let data = await models.users.findAll()
+    res.status(status.OK).json(data);
+  } catch (error) {
+    console.log(error)
+  }
+}
+
 const getUser = async (req, res) => {
   try {
     // const [data] = await pool.query(`SELECT *FROM users limit 1`)
@@ -170,4 +179,4 @@ const uploadAvarta = async (req, res, next) => {
   }
 };
 
-export { createUser, getUser, deleteUser, updateUser, uploadAvarta };
+export { createUser, getUser, deleteUser, updateUser, uploadAvarta, getAllUser };
