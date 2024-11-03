@@ -37,7 +37,7 @@ const authRegister = async (req, res, next) => {
         full_name: fullname,
         email: email,
         pass_word: bcrypt.hashSync(pass, 10),
-        secret: secret.base32,
+        secret: secret.base32, // use for MFA
       },
     });
     // const mailOption = {
